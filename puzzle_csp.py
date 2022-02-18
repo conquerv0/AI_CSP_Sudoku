@@ -33,12 +33,44 @@ from cspbase import *
 import itertools
 
 def binary_ne_grid(fpuzz_grid):
-    ##IMPLEMENT
+    # domain
+    dimension = fpuzz_grid[0][0]
+    domain = [i+1 for i in range(dimension)]
 
+    # variables
+    variables = [[Variable(str(i*10+j), domain) for i in domain] for j in domain]
+    csp_vars = []
+    for row in variables:
+        for var in row:
+            csp_vars.append(var)
+
+    # constraints
+    csp = CSP(name=f"{dimension}x{dimension} binary_ne_grid", vars=csp_vars)
+    permutations = list(itertools.permutations(domain, 2))
+
+    for i in range(dimension):
+        row_var = variables[i]
+        for binary in itertools.combinations(row_var, 2):
+            C = Constraint(f"R-{binary[0].name}-{binary[1].name}", binary)
+            C.add_satisfying_tuples(permutations)
+            csp.add_constraint(C)
+
+        col_var = []
+        for var in variables:
+            col_var.append(var[i])
+
+        for binary in itertools.combinations(col_var, 2):
+            C = Constraint(f"C-{binary[0].name}-{binary[1].name}", binary)
+            C.add_satisfying_tuples(permutations)
+            csp.add_constraint(C)
+
+    return csp, variables
 
 def nary_ad_grid(fpuzz_grid):
     ##IMPLEMENT
+    pass
 
 
 def caged_csp_model(fpuzz_grid):
     ##IMPLEMENT
+    pass
