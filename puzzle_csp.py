@@ -31,14 +31,27 @@ The grid-only models do not need to encode the cage constraints.
 '''
 from cspbase import *
 import itertools
+from itertools import combinations
+
 
 def binary_ne_grid(fpuzz_grid):
-    # domain
+    """
+    Implement a model built using the binary not equal constraints.
+    :param fpuzz_grid: board
+    :return: csp model, variables
+    """
+    # dimension and domain
     dimension = fpuzz_grid[0][0]
     domain = [i+1 for i in range(dimension)]
 
     # variables
-    variables = [[Variable(str(i*10+j), domain) for i in domain] for j in domain]
+    variables = []
+    for row in domain:
+        row_var = []
+        for col in domain:
+            row_var.append(Variable(f"{row*dimension+col}", domain))
+        variables.append(row_var)
+
     csp_vars = []
     for row in variables:
         for var in row:
@@ -49,26 +62,67 @@ def binary_ne_grid(fpuzz_grid):
     permutations = list(itertools.permutations(domain, 2))
 
     for i in range(dimension):
+        # row constraint
         row_var = variables[i]
-        for binary in itertools.combinations(row_var, 2):
+        for binary in combinations(row_var, 2):
             C = Constraint(f"R-{binary[0].name}-{binary[1].name}", binary)
             C.add_satisfying_tuples(permutations)
             csp.add_constraint(C)
 
+        # col constraints
         col_var = []
         for var in variables:
             col_var.append(var[i])
 
-        for binary in itertools.combinations(col_var, 2):
+        for binary in combinations(col_var, 2):
             C = Constraint(f"C-{binary[0].name}-{binary[1].name}", binary)
             C.add_satisfying_tuples(permutations)
             csp.add_constraint(C)
 
     return csp, variables
 
+
 def nary_ad_grid(fpuzz_grid):
-    ##IMPLEMENT
-    pass
+    """Implement a model built using the n-ary all different constraints.
+    :param fpuzz_grid: board
+    :return: csp model, variables
+    """
+    # dimension and domain
+    dimension = fpuzz_grid[0][0]
+    domain = [i+1 for i in range(dimension)]
+
+    # variables
+    variables = []
+    for row in domain:
+        row_var = []
+        for col in domain:
+            row_var.append(Variable(f"{row*dimension+col}", domain))
+        variables.append(row_var)
+
+    csp_vars = []
+    for row in variables:
+        for var in row:
+            csp_vars.append(var)
+
+    # constraints
+    csp = CSP(name=f"{dimension}x{dimension} n-ary_ad_grid", vars=csp_vars)
+    permutations = list(itertools.permutations(domain))
+
+    for i in range(dimension):
+        row = i // dimension
+        row_C = Constraint(f"R-{row+1}", variables[i])
+        row_C.add_satisfying_tuples(permutations)
+        csp.add_constraint(row_C)
+
+        col = i % dimension
+        col_var = []
+        for var in variables:
+            col_var.append(var[i])
+        col_C = Constraint(f"C-{col+1}", col_var)
+        col_C.add_satisfying_tuples(permutations)
+        csp.add_constraint(col_C)
+
+    return csp, variables
 
 
 def caged_csp_model(fpuzz_grid):
