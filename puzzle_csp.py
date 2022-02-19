@@ -1,4 +1,4 @@
-#Look for #IMPLEMENT tags in this file.
+# Look for #IMPLEMENT tags in this file.
 '''
 All models need to return a CSP object, and a list of lists of Variable objects 
 representing the board. The returned list of lists is used to access the 
@@ -32,8 +32,10 @@ The grid-only models do not need to encode the cage constraints.
 from cspbase import *
 import itertools
 from itertools import combinations
+import operator
 
 
+# HELPER Method
 def build_base_grid(fpuzz_grid):
     """
     A helper function that construct the common variables needed in both csp grid.
@@ -59,10 +61,38 @@ def build_base_grid(fpuzz_grid):
     return dimension, domain, variables, csp_vars
 
 
+def find_cage_satisfy(cage_target, cage_operator, cage_size, domain):
+    """
+    :param cage_target:
+    :param cage_operator:
+    :param cage_size:
+    :param domain:
+    :return:
+    """
+    # combinations = list(itertools.combinations_with_replacement(range(1,n+1), len(cage)))
+    candidates = set()
+    combinations = list(itertools.product(domain, repeat=cage_size))
+
+    for combination in combinations:
+        cur_target = combination[0]
+        for var in combination[1:]:
+            cur_target = cage_operator(cur_target, var)
+        if cur_target == cage_target:
+            candidates.add(combination)
+
+    satisfying = set()
+    for candidate in candidates:
+        satisfying.update(list(itertools.permutations(candidate)))
+    satisfying = list(satisfying)
+
+    return satisfying
+
+
+# CSP Build Method
 def binary_ne_grid(fpuzz_grid):
     """
     Implement a model built using the binary not equal constraints.
-    :param fpuzz_grid: board
+    :param fpuzz_grid:
     :return: csp model, variables
     """
     # build base grid
@@ -95,7 +125,7 @@ def binary_ne_grid(fpuzz_grid):
 
 def nary_ad_grid(fpuzz_grid):
     """Implement a model built using the n-ary all different constraints.
-    :param fpuzz_grid: board
+    :param fpuzz_grid:
     :return: csp model, variables
     """
     # build base grid
@@ -106,15 +136,15 @@ def nary_ad_grid(fpuzz_grid):
     permutations = list(itertools.permutations(domain))
 
     for i in range(dimension):
-        row, col = i//dimension, i%dimension
-        row_C = Constraint(f"R-{row+1}", variables[i])
+        row, col = i // dimension, i % dimension
+        row_C = Constraint(f"R-{row + 1}", variables[i])
         row_C.add_satisfying_tuples(permutations)
         csp.add_constraint(row_C)
 
         col_var = []
         for var in variables:
             col_var.append(var[i])
-        col_C = Constraint(f"C-{col+1}", col_var)
+        col_C = Constraint(f"C-{col + 1}", col_var)
         col_C.add_satisfying_tuples(permutations)
         csp.add_constraint(col_C)
 
@@ -122,5 +152,46 @@ def nary_ad_grid(fpuzz_grid):
 
 
 def caged_csp_model(fpuzz_grid):
-    ##IMPLEMENT
-    pass
+    """Implement a model built with binary non-equal and cage constraint.
+    :param fpuzz_grid:
+    :return: csp model, variables
+    """
+    # build base board
+    csp, variables = binary_ne_grid(fpuzz_grid)
+    dimension = fpuzz_grid[0][0]
+    domain = [i + 1 for i in range(dimension)]
+    csp.name = f"{dimension}x{dimension} caged_binary_ne_grid"
+
+    # iterate through every cage of the fpuzz board
+    for i, cage in enumerate(fpuzz_grid[1:]):
+        # Base case: (value, target value)
+        if len(cage) == 2:
+            row, col = i // dimension, i % dimension
+            var_index = row*dimension + col
+            cage_target = cage[1]
+            # construct constraint and the satisfying tuples
+            C = Constraint(f"Cage-{var_index}", [variables[var_index]])
+            S = [(cage_target,)]
+
+        # Complex case
+        else:
+            operator_case = {
+                0: operator.add,
+                1: operator.sub,
+                2: operator.floordiv,
+                3: operator.mul
+            }
+            cage_operator = operator_case[cage.pop(-1)]
+            cage_target = cage.pop(-1)
+            cage_variables = []
+            for j in cage:
+                row, col = j // dimension, j % dimension
+                var_index = row * dimension + col
+                cage_variables.append([variables[var_index]])
+            C = Constraint(f"Cage-{var_index}", cage_variables)
+            S = find_cage_satisfy(cage_target, cage_operator, len(cage), domain)
+
+        C.add_satisfying_tuples(S)
+        csp.add_constraint(C)
+
+    return csp, variables
