@@ -34,28 +34,39 @@ import itertools
 from itertools import combinations
 
 
-def binary_ne_grid(fpuzz_grid):
+def build_base_grid(fpuzz_grid):
     """
-    Implement a model built using the binary not equal constraints.
-    :param fpuzz_grid: board
-    :return: csp model, variables
+    A helper function that construct the common variables needed in both csp grid.
+    :param fpuzz_grid:
+    :return: dimension, domain, variables, csp_vars
     """
-    # dimension and domain
     dimension = fpuzz_grid[0][0]
-    domain = [i+1 for i in range(dimension)]
+    domain = [i + 1 for i in range(dimension)]
 
     # variables
     variables = []
     for row in domain:
         row_var = []
         for col in domain:
-            row_var.append(Variable(f"{row*dimension+col}", domain))
+            row_var.append(Variable(f"{row * dimension + col}", domain))
         variables.append(row_var)
 
     csp_vars = []
     for row in variables:
         for var in row:
             csp_vars.append(var)
+
+    return dimension, domain, variables, csp_vars
+
+
+def binary_ne_grid(fpuzz_grid):
+    """
+    Implement a model built using the binary not equal constraints.
+    :param fpuzz_grid: board
+    :return: csp model, variables
+    """
+    # build base grid
+    dimension, domain, variables, csp_vars = build_base_grid(fpuzz_grid)
 
     # constraints
     csp = CSP(name=f"{dimension}x{dimension} binary_ne_grid", vars=csp_vars)
@@ -87,34 +98,19 @@ def nary_ad_grid(fpuzz_grid):
     :param fpuzz_grid: board
     :return: csp model, variables
     """
-    # dimension and domain
-    dimension = fpuzz_grid[0][0]
-    domain = [i+1 for i in range(dimension)]
-
-    # variables
-    variables = []
-    for row in domain:
-        row_var = []
-        for col in domain:
-            row_var.append(Variable(f"{row*dimension+col}", domain))
-        variables.append(row_var)
-
-    csp_vars = []
-    for row in variables:
-        for var in row:
-            csp_vars.append(var)
+    # build base grid
+    dimension, domain, variables, csp_vars = build_base_grid(fpuzz_grid)
 
     # constraints
     csp = CSP(name=f"{dimension}x{dimension} n-ary_ad_grid", vars=csp_vars)
     permutations = list(itertools.permutations(domain))
 
     for i in range(dimension):
-        row = i // dimension
+        row, col = i//dimension, i%dimension
         row_C = Constraint(f"R-{row+1}", variables[i])
         row_C.add_satisfying_tuples(permutations)
         csp.add_constraint(row_C)
 
-        col = i % dimension
         col_var = []
         for var in variables:
             col_var.append(var[i])

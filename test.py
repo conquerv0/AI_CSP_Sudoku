@@ -23,9 +23,9 @@ def print_funpuzz_soln(var_array):
 if __name__ == "__main__":
     for b in boards:
         print("Solving board")
-        # csp, var_array = binary_ne_grid(b)
+        csp, var_array = binary_ne_grid(b)
         # csp, var_array = caged_csp_model(b)
-        csp, var_array = nary_ad_grid(b)
+        # csp, var_array = nary_ad_grid(b)
         solver = BT(csp)
         print("=======================================================")
         # print("BT")
