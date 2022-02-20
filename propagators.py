@@ -59,7 +59,6 @@
 
          for gac we initialize the GAC queue with all constraints containing V.
    '''
-import cytoolz
 
 
 def prop_BT(csp, newVar=None):
@@ -112,10 +111,10 @@ def prop_FC(csp, newVar=None):
     '''Do forward checking. That is check constraints with
        only one uninstantiated variable. Remember to keep
        track of all pruned variable,value pairs and return '''
-    if newVar:
-        cons = csp.get_cons_with_var(newVar)
-    else:
+    if not newVar:
         cons = csp.get_all_cons()
+    else:
+        cons = csp.get_cons_with_var(newVar)
 
     pruned = []
     for C in cons:
@@ -164,12 +163,12 @@ def prop_GAC(csp, newVar=None):
     '''Do GAC propagation. If newVar is None we do initial GAC enforce
        processing all constraints. Otherwise we do GAC enforce with
        constraints containing newVar on GAC Queue'''
-    if newVar:
-        GAC_queue = csp.get_cons_with_var(newVar)
-        nGAC_queue = [c for c in csp.get_all_cons() if c not in GAC_queue]
-    else:
+    if not newVar:
         GAC_queue = csp.get_all_cons()
         nGAC_queue = []
+    else:
+        GAC_queue = csp.get_cons_with_var(newVar)
+        nGAC_queue = [c for c in csp.get_all_cons() if c not in GAC_queue]
 
     pruned = []
     GAC_enforce_ok, pruned = gac_enforce(GAC_queue, nGAC_queue, pruned)

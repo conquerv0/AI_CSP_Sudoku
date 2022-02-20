@@ -50,7 +50,7 @@ def build_base_grid(fpuzz_grid):
     for row in domain:
         row_var = []
         for col in domain:
-            row_var.append(Variable(f"{row * dimension + col}", domain))
+            row_var.append(Variable(f"{row * 10 + col}", domain))
         variables.append(row_var)
 
     csp_vars = []
@@ -85,7 +85,7 @@ def find_cage_satisfy(cage_target, cage_operator, cage_size, domain):
         satisfying.update(list(itertools.permutations(candidate)))
     satisfying = list(satisfying)
 
-    return satisfying
+    return list(satisfying)
 
 
 # CSP Build Method
@@ -105,8 +105,9 @@ def binary_ne_grid(fpuzz_grid):
     for i in range(dimension):
         # row constraint
         row_var = variables[i]
-        for binary in combinations(row_var, 2):
-            C = Constraint(f"R-{binary[0].name}-{binary[1].name}", binary)
+        row_con = combinations(row_var, 2)
+        for binary in row_con:
+            C = Constraint(f"binary_pair-{binary[0].name}-{binary[1].name}", binary)
             C.add_satisfying_tuples(permutations)
             csp.add_constraint(C)
 
@@ -114,9 +115,9 @@ def binary_ne_grid(fpuzz_grid):
         col_var = []
         for var in variables:
             col_var.append(var[i])
-
-        for binary in combinations(col_var, 2):
-            C = Constraint(f"C-{binary[0].name}-{binary[1].name}", binary)
+        col_con = combinations(col_var, 2)
+        for binary in col_con:
+            C = Constraint(f"binary_pair-{binary[0].name}-{binary[1].name}", binary)
             C.add_satisfying_tuples(permutations)
             csp.add_constraint(C)
 
@@ -137,14 +138,15 @@ def nary_ad_grid(fpuzz_grid):
 
     for i in range(dimension):
         row, col = i // dimension, i % dimension
-        row_C = Constraint(f"R-{row + 1}", variables[i])
+        # note we should add 1 for 1-indexing as cell starts from row 1, col 1.
+        row_C = Constraint(f"row_ad-{row + 1}", variables[i])
         row_C.add_satisfying_tuples(permutations)
         csp.add_constraint(row_C)
 
         col_var = []
         for var in variables:
             col_var.append(var[i])
-        col_C = Constraint(f"C-{col + 1}", col_var)
+        col_C = Constraint(f"col_ad-{col + 1}", col_var)
         col_C.add_satisfying_tuples(permutations)
         csp.add_constraint(col_C)
 
@@ -157,39 +159,60 @@ def caged_csp_model(fpuzz_grid):
     :return: csp model, variables
     """
     # build base board
-    csp, variables = binary_ne_grid(fpuzz_grid)
+    csp, variables = nary_ad_grid(fpuzz_grid)
     dimension = fpuzz_grid[0][0]
     domain = [i + 1 for i in range(dimension)]
-    csp.name = f"{dimension}x{dimension} caged_binary_ne_grid"
+    csp.name = f"{dimension}x{dimension} caged_nary_ad_grid"
 
     # iterate through every cage of the fpuzz board
     for i, cage in enumerate(fpuzz_grid[1:]):
         # Base case: (value, target value)
         if len(cage) == 2:
-            row, col = i // dimension, i % dimension
-            var_index = row*dimension + col
+            row, col = cage[0] // 10 - 1, cage[0] % 10 - 1
             cage_target = cage[1]
             # construct constraint and the satisfying tuples
-            C = Constraint(f"Cage-{var_index}", [variables[var_index]])
+            C = Constraint(f"cage-{i}-target-{cage_target}", [variables[row][col]])
             S = [(cage_target,)]
 
         # Complex case
         else:
-            operator_case = {
-                0: operator.add,
-                1: operator.sub,
-                2: operator.floordiv,
-                3: operator.mul
-            }
-            cage_operator = operator_case[cage.pop(-1)]
+            # construct cage constraint.
+            cage_operator = cage.pop(-1)
             cage_target = cage.pop(-1)
             cage_variables = []
-            for j in cage:
-                row, col = j // dimension, j % dimension
-                var_index = row * dimension + col
-                cage_variables.append([variables[var_index]])
-            C = Constraint(f"Cage-{var_index}", cage_variables)
-            S = find_cage_satisfy(cage_target, cage_operator, len(cage), domain)
+            for cell in cage:
+                row, col = cell // 10 - 1, cell % 10 - 1
+                cage_variables.append(variables[row][col])
+            C = Constraint(f"cage-{i}-operator-{cage_operator}-target-{cage_target}", cage_variables)
+
+            # find all satisfying tuples for the cage constraint.
+            candidates = []
+            combinations = list(itertools.product(domain, repeat=len(cage)))
+
+            for combination in combinations:
+                cur_result = combination[0]
+                for var in combination[1:]:
+                    match cage_operator:
+                        case 0:
+                            cur_result = operator.add(cur_result, var)
+                        case 1:
+                            cur_result = operator.sub(cur_result, var)
+                        case 2:
+                            cur_result = operator.floordiv(cur_result, var)
+                        case 3:
+                            cur_result = operator.mul(cur_result, var)
+
+                if cur_result == cage_target:
+                    candidates.append(combination)
+
+            S = set()
+            candidates = set(candidates)
+            for candidate in candidates:
+                permutations = itertools.permutations(candidate)
+                S.update(list(permutations))
+            S = list(S)
+
+            # S = find_cage_satisfy(cage_target, cage_operator, len(cage), domain)
 
         C.add_satisfying_tuples(S)
         csp.add_constraint(C)
