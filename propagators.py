@@ -87,22 +87,20 @@ def fc_check(C, x, pruned):
     :param pruned: pruned values
     :return: True if no DWO occurs, False otherwise; along with a list of pruned values.
     """
-    cur_dom = x.cur_domain()
-    for d in cur_dom:
+    for d in x.cur_domain():
         # loop over members of domain, assign d to x
         x.assign(d)
-        variables = C.get_scope()
-        values = []
-        for var in variables:
-            var_val = var.get_assigned_value()
-            values.append(var_val)
+        vars = C.get_scope()
+        vals = []
+        for var in vars:
+            vals.append(var.get_assigned_value())
         # check if values falsifies C, prune d
-        if not C.check(values):
+        if not C.check(vals):
             x.prune_value(d)
             pruned.append((x, d))
         x.unassign()
     # DWO if domain size is 0, return False
-    if x.cur_domain_size() == 0:
+    if not x.cur_domain_size():
         return False, pruned
     return True, pruned
 
@@ -112,12 +110,12 @@ def prop_FC(csp, newVar=None):
        only one uninstantiated variable. Remember to keep
        track of all pruned variable,value pairs and return '''
     if not newVar:
-        cons = csp.get_all_cons()
+        candidate_cons = csp.get_all_cons()
     else:
-        cons = csp.get_cons_with_var(newVar)
+        candidate_cons = csp.get_cons_with_var(newVar)
 
     pruned = []
-    for C in cons:
+    for C in candidate_cons:
         # C only has one unassigned var x in scope
         if C.get_n_unasgn() == 1:
             x = C.get_unasgn_vars()[0]
@@ -128,15 +126,14 @@ def prop_FC(csp, newVar=None):
     return True, pruned
 
 
-def gac_enforce(GAC_queue, nGAC_queue, pruned):
+def gac_enforce(GAC_queue, csp, pruned):
     """
     :param GAC_queue:
-    :param nGAC_queue:
+    :param csp:
     :return: True if no DWO occurs, False otherwise; along with a list of pruned values.
     """
     while GAC_queue:
         C = GAC_queue.pop(0)
-        nGAC_queue.append(C)
         for var in C.get_scope():
             for d in var.cur_domain():
                 # Find an assignment A for all other var in scope(c) s.t. C(AUV=d) is True
@@ -145,15 +142,15 @@ def gac_enforce(GAC_queue, nGAC_queue, pruned):
                     pruned.append((var, d))
 
                     # DWO occurs, exit immediately
-                    if var.cur_domain_size() == 0:
+                    if not var.cur_domain_size():
                         GAC_queue.clear()
                         return False, pruned
                     else:
                         # push all constraint C' s.t. var in scope(C') and C' not in GAC_queue
-                        for c_prime in nGAC_queue:
-                            if var in c_prime.get_scope():
+                        for c_prime in csp.get_cons_with_var(var):
+                            if var in c_prime.get_scope() and c_prime not in GAC_queue:
                                 GAC_queue.append(c_prime)
-                                nGAC_queue.remove(c_prime)
+
 
     # While loop exited without DWO
     return True, pruned
@@ -165,13 +162,11 @@ def prop_GAC(csp, newVar=None):
        constraints containing newVar on GAC Queue'''
     if not newVar:
         GAC_queue = csp.get_all_cons()
-        nGAC_queue = []
     else:
         GAC_queue = csp.get_cons_with_var(newVar)
-        nGAC_queue = [c for c in csp.get_all_cons() if c not in GAC_queue]
 
     pruned = []
-    GAC_enforce_ok, pruned = gac_enforce(GAC_queue, nGAC_queue, pruned)
+    GAC_enforce_ok, pruned = gac_enforce(GAC_queue, csp, pruned)
     if not GAC_enforce_ok:
         return False, pruned
     return True, pruned
