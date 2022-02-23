@@ -61,33 +61,6 @@ def build_base_grid(fpuzz_grid):
     return dimension, domain, variables, csp_vars
 
 
-def find_cage_satisfy(cage_target, cage_operator, cage_size, domain):
-    """
-    :param cage_target:
-    :param cage_operator:
-    :param cage_size:
-    :param domain:
-    :return:
-    """
-    # combinations = list(itertools.combinations_with_replacement(range(1,n+1), len(cage)))
-    candidates = set()
-    combinations = list(itertools.product(domain, repeat=cage_size))
-
-    for combination in combinations:
-        cur_target = combination[0]
-        for var in combination[1:]:
-            cur_target = cage_operator(cur_target, var)
-        if cur_target == cage_target:
-            candidates.add(combination)
-
-    satisfying = set()
-    for candidate in candidates:
-        satisfying.update(list(itertools.permutations(candidate)))
-    satisfying = list(satisfying)
-
-    return list(satisfying)
-
-
 # CSP Build Method
 def binary_ne_grid(fpuzz_grid):
     """
@@ -211,8 +184,6 @@ def caged_csp_model(fpuzz_grid):
                 permutations = itertools.permutations(candidate)
                 S.update(list(permutations))
             S = list(S)
-
-            # S = find_cage_satisfy(cage_target, cage_operator, len(cage), domain)
 
         C.add_satisfying_tuples(S)
         csp.add_constraint(C)
